@@ -19,6 +19,16 @@ async function sendToTab(tabId, message) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
+  if (message.type === "OPEN_READER_POPUP") {
+    if (!sender.tab?.windowId || typeof chrome.action.openPopup !== "function") {
+      respond({ ok: false });
+      return;
+    }
+    chrome.action.openPopup({ windowId: sender.tab.windowId })
+      .then(() => respond({ ok: true }))
+      .catch(() => respond({ ok: false }));
+    return true;
+  }
   if (message.type !== "READER_ACTION") return;
   (async () => {
     const tabId = message.tabId ?? sender.tab?.id;
