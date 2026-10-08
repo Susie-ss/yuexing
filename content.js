@@ -44,12 +44,12 @@
       <style>
         *{box-sizing:border-box} .bubble{position:fixed;right:20px;bottom:20px;width:48px;height:48px;border:1px solid #a9d869;border-radius:50%;background:#c6ed86;color:#26321b;box-shadow:0 6px 24px #0005;display:grid;place-items:center;font:700 18px -apple-system,BlinkMacSystemFont,sans-serif;cursor:pointer;user-select:none}
         .panel{position:fixed;right:20px;bottom:20px;width:210px;padding:14px;border:1px solid #41483a;border-radius:16px;background:#171b16;color:#f2f3ec;box-shadow:0 12px 40px #0008;font:13px -apple-system,BlinkMacSystemFont,sans-serif}
-        .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.title{font-weight:700}.state{font-size:11px;color:#bfe986}.actions{display:flex;gap:7px}.actions button,.mini{font:inherit;cursor:pointer;border:0}.actions button{height:34px;flex:1;border-radius:9px;background:#c6ed86;color:#26321b;font-weight:700}.actions .stop{flex:0 0 38px;background:#2b3029;color:#d5d7ce}.collapse{background:transparent!important;color:#a4aa9b!important;flex:0 0 25px!important}.hint{margin-top:9px;color:#8e9588;font-size:10px}
+        .head{display:flex;align-items:center;gap:8px;margin-bottom:12px}.title{font-weight:700;margin-right:auto}.state{font-size:11px;color:#bfe986}.actions{display:flex;gap:7px}.actions button,.mini{font:inherit;cursor:pointer;border:0}.head .close{width:26px;height:26px;border:0;border-radius:7px;background:#2b3029;color:#d5d7ce;font:18px/1 -apple-system,BlinkMacSystemFont,sans-serif;cursor:pointer}.actions button{height:34px;flex:1;border-radius:9px;background:#c6ed86;color:#26321b;font-weight:700}.actions .stop{flex:0 0 38px;background:#2b3029;color:#d5d7ce}.collapse{background:transparent!important;color:#a4aa9b!important;flex:0 0 25px!important}.hint{margin-top:9px;color:#8e9588;font-size:10px}
         .bubble[hidden],.panel[hidden]{display:none}
       </style>
       <button class="bubble" aria-label="展开阅行控制" title="展开阅行控制">阅</button>
       <section class="panel" aria-label="阅行阅读控制" hidden>
-        <div class="head"><span class="title">阅行阅读</span><span class="state">正在阅读</span></div>
+        <div class="head"><span class="title">阅行阅读</span><span class="state">正在阅读</span><button class="close" aria-label="关闭并退出阅行" title="关闭并退出阅行">×</button></div>
         <div class="actions"><button class="toggle">暂停阅读</button><button class="stop" title="停止阅读">■</button><button class="collapse" title="收起">⌄</button></div>
         <div class="hint">拖动此控件可调整位置</div>
       </section>`;
@@ -59,6 +59,7 @@
     root.querySelector(".collapse").addEventListener("click", () => { state.minimized = true; updateWidget(); });
     root.querySelector(".toggle").addEventListener("click", () => state.running ? stop() : start());
     root.querySelector(".stop").addEventListener("click", () => { state.settings.loop = false; stop(); state.minimized = true; updateWidget(); });
+    root.querySelector(".close").addEventListener("click", closeWidget);
     let drag = null;
     const dragTarget = panel.querySelector(".head");
     dragTarget.style.cursor = "move";
@@ -90,6 +91,15 @@
     panel.hidden = state.minimized;
     root.querySelector(".state").textContent = state.running ? "正在阅读" : "已暂停";
     root.querySelector(".toggle").textContent = state.running ? "暂停阅读" : "继续阅读";
+  }
+
+  function closeWidget() {
+    stop();
+    state.settings.loop = false;
+    state.widget?.remove();
+    state.widget = null;
+    state.widgetRoot = null;
+    state.minimized = false;
   }
 
   function start(settings = {}) {
