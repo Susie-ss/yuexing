@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>阅行</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div><h1>阅行</h1><p>让阅读，顺流而下</p></div>
+      <div class="live"><i></i><span id="statusText">已就绪</span></div>
+    </header>
+
+    <section class="speed-card">
+      <div class="section-heading"><div><span class="eyebrow">READING PACE</span><h2>阅读速度</h2></div><div class="speed-value"><strong id="speedValue">35</strong><span>px/s</span></div></div>
+      <input id="speed" type="range" min="5" max="140" value="35" aria-label="阅读速度" />
+      <div class="range-labels"><span>慢慢读</span><span>快速浏览</span></div>
+      <div class="presets" role="group" aria-label="速度预设"><button data-speed="18">舒缓</button><button class="selected" data-speed="35">标准</button><button data-speed="65">速读</button></div>
+    </section>
+
+    <section class="options">
+      <label class="option-row"><span class="option-icon loop-icon">↻</span><span class="option-copy"><strong>循环阅读</strong><small>滚动到底后回到顶部</small></span><span class="switch"><input id="loop" type="checkbox" /><i></i></span></label>
+      <div class="divider"></div>
+      <label class="option-row"><span class="option-icon smooth-icon">≈</span><span class="option-copy"><strong>平滑滚动</strong><small>阅读画面更柔和</small></span><span class="switch"><input id="smooth" type="checkbox" checked /><i></i></span></label>
+    </section>
+
+    <section class="controls">
+      <button id="toggle" class="primary"><span class="play-icon">▶</span><span>开始阅读</span><kbd>⌥ ⇧ R</kbd></button>
+      <button id="stop" class="stop" title="停止并重置">■</button>
+    </section>
+
+    <footer><span class="keyboard-hint"><kbd>滚轮</kbd> 或键盘操作可暂停</span><button id="top" class="top-button">↑ 回到顶部</button></footer>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
