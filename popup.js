@@ -28,9 +28,9 @@ function showToast(message) {
   toastTimer = setTimeout(() => els.toast.classList.remove("show"), 1700);
 }
 
-function showError(message) {
+function showError(message, status = "操作失败") {
   showToast(message || "操作失败，请刷新网页后重试");
-  els.status.textContent = "操作失败";
+  els.status.textContent = status;
   els.live.classList.remove("running");
 }
 
@@ -55,9 +55,33 @@ async function init() {
   updateSpeedUI();
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   activeTabId = tab?.id;
-  if (!activeTabId || !/^(https?:|file:)/.test(tab.url || "")) {
+  const url = tab?.url || "";
+  if (!activeTabId) {
     els.toggle.disabled = true;
-    showError("此页面不支持扩展控制");
+    els.stop.disabled = true;
+    els.top.disabled = true;
+    showError("请先打开一个网页", "页面受限");
+    return;
+  }
+  if (url.startsWith("chrome-extension://")) {
+    els.toggle.disabled = true;
+    els.stop.disabled = true;
+    els.top.disabled = true;
+    showError("这是另一个扩展的页面，Chrome 禁止跨扩展注入。请直接用 file:// 或普通网页打开 Markdown 文件。", "扩展页受限");
+    return;
+  }
+  if (/^https:\/\/(chromewebstore\.google\.com|chrome\.google\.com\/webstore)(\/|$)/.test(url)) {
+    els.toggle.disabled = true;
+    els.stop.disabled = true;
+    els.top.disabled = true;
+    showError("Chrome 网上应用店页面受保护，无法注入阅读控件", "页面受限");
+    return;
+  }
+  if (!/^(https?:|file:)/.test(url)) {
+    els.toggle.disabled = true;
+    els.stop.disabled = true;
+    els.top.disabled = true;
+    showError("浏览器内部页或受保护页面无法控制", "页面受限");
     return;
   }
   try {

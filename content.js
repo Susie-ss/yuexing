@@ -2,7 +2,7 @@
   if (window.__yuexingReaderInstalled) return;
   window.__yuexingReaderInstalled = true;
 
-  const state = { timer: null, running: false, settings: { speed: 35, loop: false, smooth: true }, scroller: null, widget: null, widgetRoot: null, minimized: false };
+  const state = { timer: null, running: false, resetting: false, resetTimer: null, settings: { speed: 35, loop: false, smooth: true }, scroller: null, widget: null, widgetRoot: null, minimized: false };
   const isScrollable = (el) => {
     if (!(el instanceof Element)) return false;
     const style = getComputedStyle(el);
@@ -10,24 +10,42 @@
   };
 
   function findScroller() {
-    const candidates = [...document.querySelectorAll("main, article, [role=main], .markdown-body, pre, div, section")]
+    const preferred = [...document.querySelectorAll("main, article, [role=main], .markdown-body, pre, div, section")]
       .filter(isScrollable)
       .filter((el) => el.clientHeight > 160)
       .sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight));
-    return candidates[0] || document.scrollingElement || document.documentElement;
+    return preferred[0] || document.scrollingElement || document.documentElement;
+  }
+
+  function isDocumentScroller(el) {
+    return el === document.scrollingElement || el === document.documentElement || el === document.body;
   }
 
   function metrics() {
     const el = state.scroller || document.scrollingElement || document.documentElement;
-    const top = el === document.scrollingElement || el === document.documentElement || el === document.body ? window.scrollY : el.scrollTop;
-    const height = el === document.scrollingElement || el === document.documentElement || el === document.body ? document.documentElement.scrollHeight : el.scrollHeight;
-    const view = el === document.scrollingElement || el === document.documentElement || el === document.body ? window.innerHeight : el.clientHeight;
+    const documentScroller = isDocumentScroller(el);
+    const top = documentScroller ? Math.max(window.scrollY, el.scrollTop || 0) : el.scrollTop;
+    const height = documentScroller ? Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight || 0) : el.scrollHeight;
+    const view = documentScroller ? window.innerHeight : el.clientHeight;
     return { top, height, view };
+  }
+
+  function scrollToTop() {
+    const el = state.scroller || document.scrollingElement || document.documentElement;
+    if (isDocumentScroller(el)) {
+      window.scrollTo({ top: 0, left: window.scrollX, behavior: "instant" });
+      el.scrollTop = 0;
+    } else {
+      el.scrollTop = 0;
+    }
   }
 
   function stop() {
     if (state.timer) clearInterval(state.timer);
+    if (state.resetTimer) clearTimeout(state.resetTimer);
     state.timer = null;
+    state.resetTimer = null;
+    state.resetting = false;
     state.running = false;
     updateWidget();
     return { running: false, ...metrics() };
@@ -42,12 +60,12 @@
     state.widgetRoot = root;
     root.innerHTML = `
       <style>
-        *{box-sizing:border-box} .bubble{position:fixed;right:20px;bottom:20px;width:48px;height:48px;border:1px solid #a9d869;border-radius:50%;background:#c6ed86;color:#26321b;box-shadow:0 6px 24px #0005;display:grid;place-items:center;font:700 18px -apple-system,BlinkMacSystemFont,sans-serif;cursor:pointer;user-select:none}
+        *{box-sizing:border-box} .bubble{--progress:0deg;position:fixed;right:20px;bottom:20px;width:52px;height:52px;padding:3px;border:0;border-radius:50%;background:conic-gradient(#a7db5d var(--progress),#394136 var(--progress));color:#26321b;box-shadow:0 6px 24px #0005;display:grid;place-items:center;font:700 18px -apple-system,BlinkMacSystemFont,sans-serif;cursor:pointer;user-select:none}.bubble::before{content:"";position:absolute;inset:3px;border:1px solid #a9d869;border-radius:50%;background:#c6ed86;z-index:0}.bubble-label{position:relative;z-index:1}
         .panel{position:fixed;right:20px;bottom:20px;width:210px;padding:14px;border:1px solid #41483a;border-radius:16px;background:#171b16;color:#f2f3ec;box-shadow:0 12px 40px #0008;font:13px -apple-system,BlinkMacSystemFont,sans-serif}
         .head{display:flex;align-items:center;gap:8px;margin-bottom:12px}.title{font-weight:700;margin-right:auto}.state{font-size:11px;color:#bfe986}.actions{display:flex;gap:7px}.actions button,.mini{font:inherit;cursor:pointer;border:0}.head button{width:26px;height:26px;border:0;border-radius:7px;background:#2b3029;color:#d5d7ce;font:16px/1 -apple-system,BlinkMacSystemFont,sans-serif;cursor:pointer}.head .close{font-size:20px}.actions button{height:34px;flex:1;border-radius:9px;background:#c6ed86;color:#26321b;font-weight:700}.actions .stop{flex:0 0 38px;background:#2b3029;color:#d5d7ce}.collapse{background:transparent!important;color:#a4aa9b!important;flex:0 0 25px!important}.hint{margin-top:9px;color:#8e9588;font-size:10px}
         .bubble[hidden],.panel[hidden]{display:none}
       </style>
-      <button class="bubble" aria-label="展开阅行控制" title="展开阅行控制">阅</button>
+      <button class="bubble" aria-label="展开阅行控制" title="展开阅行控制"><span class="bubble-label">阅</span></button>
       <section class="panel" aria-label="阅行阅读控制" hidden>
         <div class="head"><span class="title">阅行阅读</span><span class="state">正在阅读</span><button class="open-popup" aria-label="打开阅行正式窗口" title="打开阅行正式窗口">↗</button><button class="close" aria-label="关闭并退出阅行" title="关闭并退出阅行">×</button></div>
         <div class="actions"><button class="toggle">暂停阅读</button><button class="stop" title="停止阅读">■</button><button class="collapse" title="收起">⌄</button></div>
@@ -93,6 +111,12 @@
     panel.hidden = state.minimized;
     root.querySelector(".state").textContent = state.running ? "正在阅读" : "已暂停";
     root.querySelector(".toggle").textContent = state.running ? "暂停阅读" : "继续阅读";
+    const { top, height, view } = metrics();
+    const progress = Math.max(0, Math.min(1, top / Math.max(1, height - view)));
+    const percent = Math.round(progress * 100);
+    bubble.style.setProperty("--progress", `${progress * 360}deg`);
+    bubble.title = `阅读进度 ${percent}%，点击展开控制`;
+    bubble.setAttribute("aria-label", `阅读进度 ${percent}%，点击展开控制`);
   }
 
   function closeWidget() {
@@ -117,21 +141,32 @@
     state.settings = { ...state.settings, ...settings };
     state.scroller = findScroller();
     if (state.timer) clearInterval(state.timer);
+    if (state.resetTimer) clearTimeout(state.resetTimer);
+    state.resetTimer = null;
+    state.resetting = false;
     state.running = true;
     state.minimized = true;
     ensureWidget();
     updateWidget();
     const tick = () => {
+      if (state.resetting) return;
       const { top, height, view } = metrics();
+      updateWidget();
       if (top + view >= height - 2) {
         if (state.settings.loop) {
-          if (state.scroller === document.scrollingElement || state.scroller === document.documentElement || state.scroller === document.body) window.scrollTo({ top: 0, behavior: "auto" });
-          else state.scroller.scrollTop = 0;
+          state.resetting = true;
+          scrollToTop();
+          state.resetTimer = setTimeout(() => {
+            state.resetTimer = null;
+            state.scroller = findScroller();
+            state.resetting = false;
+            tick();
+          }, 300);
         } else stop();
         return;
       }
       const amount = Math.max(1, Number(state.settings.speed) || 35) * (view / 800);
-      if (state.scroller === document.scrollingElement || state.scroller === document.documentElement || state.scroller === document.body) {
+      if (isDocumentScroller(state.scroller)) {
         window.scrollBy({ top: amount, behavior: state.settings.smooth ? "smooth" : "auto" });
       } else state.scroller.scrollTop += amount;
     };
@@ -149,7 +184,7 @@
       case "STATUS": return { running: state.running, ...metrics() };
       case "MINIMIZE": state.minimized = true; updateWidget(); return { running: state.running };
       case "EXPAND": state.minimized = false; updateWidget(); return { running: state.running };
-      case "SCROLL_TO_TOP": window.scrollTo({ top: 0, behavior: "smooth" }); return { running: state.running };
+      case "SCROLL_TO_TOP": scrollToTop(); return { running: state.running };
       default: return { running: state.running };
     }
   }
