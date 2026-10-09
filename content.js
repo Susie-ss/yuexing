@@ -10,7 +10,7 @@
   };
 
   function findScroller() {
-    const candidates = [...document.querySelectorAll("main, article, [role=main], div, section")]
+    const candidates = [...document.querySelectorAll("main, article, [role=main], .markdown-body, pre, div, section")]
       .filter(isScrollable)
       .filter((el) => el.clientHeight > 160)
       .sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight));
